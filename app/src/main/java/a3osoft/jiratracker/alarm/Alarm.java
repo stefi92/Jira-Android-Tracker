@@ -5,37 +5,47 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.PowerManager;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.util.Calendar;
 import java.util.Date;
 
+import a3osoft.jiratracker.database.DatabaseHelper;
+import a3osoft.jiratracker.validations.Validation;
+
 public class Alarm extends BroadcastReceiver {
+
+    private static final String TAG = "Alarm";
+    private static final int REQUEST_CODE = 145632;
+    private static final String MESSAGE = "MESSAGE";
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-        PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "");
-        wl.acquire();
+//        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+//        PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "");
+//        wl.acquire();
+//
+//        // Put here YOUR code.
+//        Toast.makeText(context, "Alarm !!!!!!!!!!", Toast.LENGTH_LONG).show();
 
-        // Put here YOUR code.
-        Toast.makeText(context, "Alarm !!!!!!!!!!", Toast.LENGTH_LONG).show(); // For example
-        Log.e("Alarm", "alarm revoke!");
+        Validation validation = DatabaseHelper.getInstance(context)
+                .getValidation(intent.getExtras().getInt(MESSAGE));
+        Log.e("Alarm", String.valueOf(validation.getMessage()));
 
-        wl.release();
+        //wl.release();
     }
 
-    public void setAlarm(Context context) {
-        AlarmManager am =( AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+    public void setAlarm(Context context, int hour, int minute, int messageId) {
+        AlarmManager am = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
         Intent i = new Intent(context, Alarm.class);
-        PendingIntent pi = PendingIntent.getBroadcast(context, 0, i, 0);
-        //am.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 1000 * 60, pi); // Millisec * Second * Minute
+        i.putExtra(MESSAGE, messageId);
+        PendingIntent pi = PendingIntent.getBroadcast(context, REQUEST_CODE, i, PendingIntent.FLAG_UPDATE_CURRENT);
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(new Date());
-        calendar.set(Calendar.HOUR_OF_DAY, 12);
-        calendar.set(Calendar.MINUTE, 47);
-        am.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pi);
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE, minute);
+        Log.e(TAG, String.valueOf(hour) + ":" + String.valueOf(minute));
+        am.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), 1000 * 60 * 5, pi);
     }
 
     public void cancelAlarm(Context context) {

@@ -122,6 +122,15 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
         return validationDao;
     }
 
+    public Validation getValidation(int id){
+        try {
+            return getValidationDao().queryForId(id);
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public void setAuthToken(String token){
         try {
             getDao(JiraAuthToken.class).create(new JiraAuthToken(token));

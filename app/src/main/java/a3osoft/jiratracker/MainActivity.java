@@ -7,6 +7,7 @@ import android.os.Environment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
 
@@ -33,8 +34,7 @@ import rx.schedulers.Schedulers;
 
 public class MainActivity extends BaseActivity implements JiraResponse<Issue>, Tracker{
 
-    @BindView(R.id.dashboard_recycler)
-    RecyclerView recyclerView;
+    @BindView(R.id.dashboard_recycler) RecyclerView recyclerView;
 
     private IssueAdapter issueAdapter;
     private Issue trackingIssue;
@@ -110,15 +110,19 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
         List<Validation> list = SAXXMLParser.parse(fileInputStream);
         DatabaseHelper databaseHelper = DatabaseHelper.getInstance(this);
         for(Validation validation : list){
+            Log.d("Validation", validation.toString());
             databaseHelper.getValidationDao().createOrUpdate(validation);
+            Pair<Integer, Integer> dateFrom = validation.getDateFrom();
+            if(dateFrom != null) {
+                startAlarmService(validation.getId());
+            }
         }
-        //Alarm alarm = new Alarm();
-        //alarm.setAlarm(this);
-        Log.d("validations", String.valueOf(databaseHelper.getValidationDao().queryForAll()));
-        if(!isMyServiceRunning(AlarmService.class)){
-            Log.e("alarm", "alarm service not running!");
-            startService(new Intent(this, AlarmService.class));
-        }
+    }
+
+    private void startAlarmService(int id) {
+        Intent intent = new Intent(this, AlarmService.class);
+        intent.putExtra(AlarmService.VALIDATION_BOUNDLE_KEY, id);
+        startService(intent);
     }
 
 
@@ -132,17 +136,16 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()){
             case R.id.synchronize:
-                Log.e("synch", "sychronizing requested!");
                 if(this.trackingIssue != null && this.trackingIssue.isTracking()){
                     this.trackingIssue.stopTracking(this);
                 }
                 showProgressDialog();
                 try {
+                    downloadMyAllOpenIssues();
                     uploadAllWorklogs();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
-                downloadMyAllOpenIssues();
                 break;
             case R.id.logout:
                 logOut();
@@ -152,7 +155,7 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
 
     @Override
     public void onError(Throwable e) {
-        Log.d("downloading issues", String.valueOf(e.getMessage()));
+        Log.d("downloading", String.valueOf(e.getMessage()));
     }
 
     @Override

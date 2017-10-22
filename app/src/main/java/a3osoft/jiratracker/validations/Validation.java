@@ -1,7 +1,13 @@
 package a3osoft.jiratracker.validations;
 
+import android.util.Pair;
+
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.table.DatabaseTable;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Locale;
 
 @DatabaseTable(tableName = "validations")
 public class Validation {
@@ -48,6 +54,19 @@ public class Validation {
 
     public void setTo(String to) {
         this.to = to;
+    }
+
+    public Pair<Integer, Integer> getDateFrom(){
+        SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+
+        try {
+            int hourFrom = dateFormat.parse(from).getHours();
+            int minuteFrom = dateFormat.parse(from).getMinutes();
+            return Pair.create(hourFrom, minuteFrom);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public int getId() {
