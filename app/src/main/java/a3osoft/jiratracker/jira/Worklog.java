@@ -33,6 +33,10 @@ public class Worklog {
         this.sync = sync;
     }
 
+    public long getDurationInSeconds(){
+        return this.durationInSeconds;
+    }
+
     public String getIssueKey(){
         return this.issueKey;
     }

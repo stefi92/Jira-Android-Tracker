@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">JiraTracker</string>
+    <string name="status_resource">Status: %s</string>
+    <string name="worklogs_number">Local worklogs: %d</string>
+    <string name="total_time">Total time: %s</string>
+    <string name="progress_precent">Progress: %d%%</string>
 </resources>

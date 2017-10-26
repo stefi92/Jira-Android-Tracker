@@ -5,11 +5,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 
-import java.io.IOException;
 import java.util.List;
 
 import a3osoft.jiratracker.database.DatabaseHelper;
@@ -39,13 +39,6 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         setContentView(R.layout.activity_login);
         ButterKnife.bind(this);
         loginButton.setOnClickListener(this);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            try {
-                checkOrCreateValidationFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -54,7 +47,7 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         String user = userName.getText().toString();
         String pass = password.getText().toString();
         if(!user.equals("") && !pass.equals("")){
-            showProgressDialog();
+            showProgressDialog(this);
             RestClient.getInstance()
                     .getIssues(AppConfig.MY_ISSUES, Credentials.basic(user, pass))
                     .subscribeOn(Schedulers.io())
@@ -75,6 +68,7 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
 
     @Override
     public void onError(Throwable e) {
+        Log.e("Login", String.valueOf(e));
         hideProgressDialog();
     }
 

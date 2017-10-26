@@ -16,20 +16,18 @@ import a3osoft.jiratracker.BuildConfig;
 import a3osoft.jiratracker.jira.Issue;
 import a3osoft.jiratracker.jira.JiraAuthToken;
 import a3osoft.jiratracker.jira.Worklog;
-import a3osoft.jiratracker.validations.Validation;
 
 public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
 
     private static final String DATABASE_NAME = "jira_tracking_app.db";
     // any time you make changes to your database objects, you may have to increase the database version
-    private static final int DATABASE_VERSION = 12;
+    private static final int DATABASE_VERSION = 15;
 
     private static DatabaseHelper mInstance = null;
 
     // the DAO object we use to access the SimpleData table
     private Dao<Issue, String> issueDao = null;
     private Dao<Worklog, Integer> worklogDao = null;
-    private Dao<Validation, Integer> validationDao = null;
 
     private Context mCxt;
 
@@ -62,7 +60,6 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
             TableUtils.createTableIfNotExists(connectionSource, Issue.class);
             TableUtils.createTableIfNotExists(connectionSource, Worklog.class);
             TableUtils.createTableIfNotExists(connectionSource, JiraAuthToken.class);
-            TableUtils.createTableIfNotExists(connectionSource, Validation.class);
         } catch (SQLException e) {
             if(BuildConfig.DEBUG) Log.e(DatabaseHelper.class.getName(), "Can't create database", e);
             throw new RuntimeException(e);
@@ -83,7 +80,6 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
             TableUtils.dropTable(connectionSource, Issue.class, true);
             TableUtils.dropTable(connectionSource, Worklog.class, true);
             TableUtils.dropTable(connectionSource, JiraAuthToken.class, true);
-            TableUtils.dropTable(connectionSource, Validation.class, true);
             // after we drop the old databases, we create the new ones
             onCreate(db, connectionSource);
         } catch (SQLException e) {
@@ -98,7 +94,14 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
         TableUtils.clearTable(getConnectionSource(), Issue.class);
         TableUtils.clearTable(getConnectionSource(), Worklog.class);
         TableUtils.clearTable(getConnectionSource(), JiraAuthToken.class);
-        TableUtils.clearTable(getConnectionSource(), Validation.class);
+    }
+
+    public void cleaWorklogs() {
+        try {
+            TableUtils.clearTable(getConnectionSource(), Worklog.class);
+        } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public Dao<Issue, String> getIssueDao() throws SQLException, java.sql.SQLException {
@@ -113,22 +116,6 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
             worklogDao = getDao(Worklog.class);
         }
         return worklogDao;
-    }
-
-    public Dao<Validation, Integer> getValidationDao() throws SQLException, java.sql.SQLException {
-        if (validationDao == null) {
-            validationDao = getDao(Validation.class);
-        }
-        return validationDao;
-    }
-
-    public Validation getValidation(int id){
-        try {
-            return getValidationDao().queryForId(id);
-        } catch (java.sql.SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     public void setAuthToken(String token){
@@ -160,6 +147,5 @@ public class DatabaseHelper extends OrmLiteSqliteOpenHelper {
         super.close();
         issueDao = null;
         worklogDao = null;
-        validationDao = null;
     }
 }

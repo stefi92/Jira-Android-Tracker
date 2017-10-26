@@ -1,34 +1,22 @@
 package a3osoft.jiratracker.network;
 
-import android.content.Context;
 import android.util.Log;
 
-import java.sql.SQLException;
-
-import a3osoft.jiratracker.jira.Worklog;
-import a3osoft.jiratracker.database.DatabaseHelper;
 import retrofit2.Response;
 import rx.Observer;
 
 public class JiraWorklogObserver implements Observer<Response<Void>> {
 
-    private final Worklog worklog;
-    private final Context context;
+    private final UploadListener listener;
 
-    public JiraWorklogObserver(Context context, Worklog worklog) {
-        this.context = context;
-        this.worklog = worklog;
+    public JiraWorklogObserver(UploadListener listener){
+        this.listener = listener;
     }
 
     @Override
     public void onCompleted() {
-        try {
-            Log.d("Worklog", "success");
-            DatabaseHelper.getInstance(context).getWorklogDao().delete(worklog);
-            Log.d("Worklog", "successfull delete");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        Log.d("Worklog", "succ");
+        listener.successfulUpload();
     }
 
     @Override
@@ -37,7 +25,8 @@ public class JiraWorklogObserver implements Observer<Response<Void>> {
     }
 
     @Override
-    public void onNext(final Response<Void> response) {
-
+    public void onNext(Response<Void> observable) {
+        Log.d("Worklog", String.valueOf(observable.code()));
     }
+
 }

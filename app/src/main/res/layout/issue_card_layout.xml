@@ -14,7 +14,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/issue_key"/>
+            android:id="@+id/issue_key"
+            android:textSize="18sp"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -25,12 +26,20 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/issue_status" />
+            android:id="@+id/issue_status"
+            android:textSize="18sp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/issue_type" />
+            android:id="@+id/issue_worklogs"
+            android:textSize="18sp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/issue_time_tracked"
+            android:textSize="18sp"/>
 
     </LinearLayout>
 

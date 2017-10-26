@@ -27,9 +27,10 @@ public class BaseActivity extends AppCompatActivity {
 
     }
 
-    protected void showProgressDialog(){
-        if(progressDialog == null) progressDialog = new ProgressDialog(this);
-        progressDialog.setMessage("loading");
+    protected void showProgressDialog(Context context){
+        progressDialog = new ProgressDialog(context);
+        progressDialog.setMessage("Loading...");
+        progressDialog.setCancelable(false);
         progressDialog.show();
     }
 

@@ -1,24 +1,23 @@
 package a3osoft.jiratracker;
 
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
-import a3osoft.jiratracker.alarm.AlarmService;
 import a3osoft.jiratracker.database.DatabaseHelper;
 import a3osoft.jiratracker.jira.Issue;
 import a3osoft.jiratracker.jira.JiraResponse;
@@ -26,33 +25,37 @@ import a3osoft.jiratracker.jira.Worklog;
 import a3osoft.jiratracker.network.JiraIssueObserver;
 import a3osoft.jiratracker.network.JiraWorklogObserver;
 import a3osoft.jiratracker.network.RestClient;
-import a3osoft.jiratracker.validations.SAXXMLParser;
-import a3osoft.jiratracker.validations.Validation;
+import a3osoft.jiratracker.network.UploadListener;
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import retrofit2.Response;
+import rx.Observable;
 import rx.schedulers.Schedulers;
 
-public class MainActivity extends BaseActivity implements JiraResponse<Issue>, Tracker{
+public class MainActivity extends BaseActivity implements JiraResponse<Issue>, UploadListener, Tracker{
 
     @BindView(R.id.dashboard_recycler) RecyclerView recyclerView;
+    @BindView(R.id.total_worklogs) TextView totalWorklogsTV;
 
     private IssueAdapter issueAdapter;
     private Issue trackingIssue;
     private String token;
+    private boolean isUploadingWorklogs;
+    private boolean isDownloadingIssues;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
-        this.issueAdapter = new IssueAdapter(this);
+        this.issueAdapter = new IssueAdapter(this, this);
         recyclerView.setAdapter(issueAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        updateTotalUnsychronizedTime();
         this.token = DatabaseHelper.getInstance(this).getAuthToken();
         try {
             getIssuesFromDatabase();
-            parseXmlValidation();
-        } catch (SQLException | FileNotFoundException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
@@ -75,6 +78,7 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
     }
 
     private void downloadMyAllOpenIssues(){
+        isDownloadingIssues = true;
         RestClient.getInstance()
                 .getIssues(AppConfig.MY_ISSUES, token)
                 .subscribeOn(Schedulers.io())
@@ -85,14 +89,18 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
     private void uploadAllWorklogs() throws SQLException {
         DatabaseHelper helper = DatabaseHelper.getInstance(this);
         List<Worklog> worklogs = helper.getWorklogDao().queryForAll();
-        Log.e("Worklog", "worklogs to upload: " + worklogs.size());
+        isUploadingWorklogs = !worklogs.isEmpty();
+        List<Observable<Response<Void>>> observables = new ArrayList<>();
+        JiraWorklogObserver observer = new JiraWorklogObserver(this);
         for(Worklog worklog : worklogs) {
-            RestClient.getInstance()
-                    .uploadWorklog(worklog, token)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(Schedulers.newThread())
-                    .subscribe(new JiraWorklogObserver(this, worklog));
+            Observable<Response<Void>> observable = RestClient.getInstance().uploadWorklog(worklog, token);
+            observables.add(observable);
         }
+
+        Observable.concatEager(observables)
+                .subscribeOn(Schedulers.io())
+                .observeOn(Schedulers.newThread())
+                .subscribe(observer);
     }
 
     private void logOut(){
@@ -104,27 +112,22 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
         }
     }
 
-    private void parseXmlValidation() throws FileNotFoundException, SQLException {
-        File file = new File(Environment.getExternalStorageDirectory().getPath() + "/validations.xml");
-        FileInputStream fileInputStream = new FileInputStream(file);
-        List<Validation> list = SAXXMLParser.parse(fileInputStream);
-        DatabaseHelper databaseHelper = DatabaseHelper.getInstance(this);
-        for(Validation validation : list){
-            Log.d("Validation", validation.toString());
-            databaseHelper.getValidationDao().createOrUpdate(validation);
-            Pair<Integer, Integer> dateFrom = validation.getDateFrom();
-            if(dateFrom != null) {
-                startAlarmService(validation.getId());
+    private void updateTotalUnsychronizedTime(){
+        try {
+            List<Worklog> worklogs = DatabaseHelper.getInstance(this).getWorklogDao().queryForAll();
+            long total = 0;
+            for(Worklog worklog : worklogs){
+                total += worklog.getDurationInSeconds();
             }
+            long millis = TimeUnit.SECONDS.toMillis(total);
+
+            SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+            totalWorklogsTV.setText(getString(R.string.total_time, dateFormat.format(millis)));
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
-
-    private void startAlarmService(int id) {
-        Intent intent = new Intent(this, AlarmService.class);
-        intent.putExtra(AlarmService.VALIDATION_BOUNDLE_KEY, id);
-        startService(intent);
-    }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -139,10 +142,10 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
                 if(this.trackingIssue != null && this.trackingIssue.isTracking()){
                     this.trackingIssue.stopTracking(this);
                 }
-                showProgressDialog();
+                showProgressDialog(this);
                 try {
-                    downloadMyAllOpenIssues();
                     uploadAllWorklogs();
+                    downloadMyAllOpenIssues();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
@@ -160,6 +163,8 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
 
     @Override
     public void onSuccess(List<Issue> issues) {
+        isDownloadingIssues = false;
+        issueAdapter.clear();
         issueAdapter.addAll(issues);
         DatabaseHelper databaseHelper = DatabaseHelper.getInstance(this);
         for(Issue issue : issues) {
@@ -172,7 +177,7 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                hideProgressDialog();
+                if(!isUploadingWorklogs) hideProgressDialog();
                 issueAdapter.notifyDataSetChanged();
             }
         });
@@ -197,5 +202,23 @@ public class MainActivity extends BaseActivity implements JiraResponse<Issue>, T
     public void stopTracking(Issue issue) {
         issue.stopTracking(this);
         recyclerView.findViewHolderForAdapterPosition(issueAdapter.issuePosition(issue)).itemView.setBackgroundColor(Color.WHITE);
+        issueAdapter.notifyDataSetChanged();
+        updateTotalUnsychronizedTime();
+    }
+
+    @Override
+    public void successfulUpload() {
+        isUploadingWorklogs = false;
+        DatabaseHelper.getInstance(this).cleaWorklogs();
+        Log.d("Worklog", "successfull delete");
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if(!isDownloadingIssues) hideProgressDialog();
+                issueAdapter.notifyDataSetChanged();
+                updateTotalUnsychronizedTime();
+            }
+        });
     }
 }
